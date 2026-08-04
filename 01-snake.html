@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake Mania</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#05060f;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Courier New',monospace;color:#F1EFE9;gap:10px}
+  #hud{display:flex;gap:20px;font-size:16px;color:#FFC94A}
+  canvas{background:#0F1229;border:4px solid #FFC94A;border-radius:8px;box-shadow:0 0 30px rgba(255,201,74,.3);touch-action:none;max-width:94vw}
+  #msg{color:#FF5C77;font-size:14px;min-height:20px}
+  .btnrow{display:flex;gap:8px}
+  button{background:#FF5C77;color:#0F1229;border:none;padding:10px 16px;border-radius:8px;font-weight:bold;font-family:inherit;cursor:pointer}
+  #pad{display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(3,50px);gap:4px;margin-top:6px}
+  #pad button{width:50px;height:50px;font-size:18px;background:#232a5c;color:#FFC94A}
+</style>
+</head>
+<body>
+<div id="hud"><span>SCORE: <b id="score">0</b></span><span>BEST: <b id="best">0</b></span></div>
+<canvas id="c" width="360" height="360"></canvas>
+<div id="msg">তীর চিহ্ন / WASD দিয়ে চালান</div>
+<div class="btnrow"><button id="restart">Restart</button></div>
+<div id="pad">
+  <span></span><button data-d="up">▲</button><span></span>
+  <button data-d="left">◀</button><span></span><button data-d="right">▶</button>
+  <span></span><button data-d="down">▼</button><span></span>
+</div>
+<script>
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const grid=20,cells=cvs.width/grid;
+let snake,dir,food,score,best=+localStorage.getItem('snakeBest')||0,alive,speed;
+document.getElementById('best').textContent=best;
+
+function reset(){
+  snake=[{x:9,y:9},{x:8,y:9},{x:7,y:9}];
+  dir={x:1,y:0}; score=0; alive=true; speed=140;
+  placeFood();
+  document.getElementById('msg').textContent='তীর চিহ্ন / WASD দিয়ে চালান';
+  document.getElementById('score').textContent=0;
+  loop();
+}
+function placeFood(){
+  food={x:Math.floor(Math.random()*cells),y:Math.floor(Math.random()*cells)};
+  if(snake.some(s=>s.x===food.x&&s.y===food.y)) placeFood();
+}
+function draw(){
+  ctx.fillStyle='#0F1229'; ctx.fillRect(0,0,cvs.width,cvs.height);
+  ctx.strokeStyle='rgba(255,201,74,0.06)';
+  for(let i=0;i<cells;i++){ctx.beginPath();ctx.moveTo(i*grid,0);ctx.lineTo(i*grid,cvs.height);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*grid);ctx.lineTo(cvs.width,i*grid);ctx.stroke();}
+  ctx.fillStyle='#FF5C77'; ctx.beginPath();ctx.arc(food.x*grid+grid/2,food.y*grid+grid/2,grid/2-2,0,7);ctx.fill();
+  snake.forEach((s,i)=>{
+    ctx.fillStyle = i===0 ? '#FFC94A' : '#43D9C8';
+    ctx.fillRect(s.x*grid+1,s.y*grid+1,grid-2,grid-2);
+  });
+}
+function step(){
+  if(!alive) return;
+  const head={x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+  if(head.x<0||head.y<0||head.x>=cells||head.y>=cells||snake.some(s=>s.x===head.x&&s.y===head.y)){
+    alive=false;
+    document.getElementById('msg').textContent='গেম ওভার! Restart চাপুন';
+    if(score>best){best=score;localStorage.setItem('snakeBest',best);document.getElementById('best').textContent=best;}
+    return;
+  }
+  snake.unshift(head);
+  if(head.x===food.x&&head.y===food.y){
+    score++; document.getElementById('score').textContent=score;
+    if(speed>60) speed-=3;
+    placeFood();
+  } else snake.pop();
+  draw();
+}
+function loop(){ step(); if(alive) setTimeout(loop,speed); else draw(); }
+
+function setDir(nx,ny){ if(dir.x===-nx&&dir.y===-ny) return; dir={x:nx,y:ny}; }
+document.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='arrowup'||k==='w') setDir(0,-1);
+  else if(k==='arrowdown'||k==='s') setDir(0,1);
+  else if(k==='arrowleft'||k==='a') setDir(-1,0);
+  else if(k==='arrowright'||k==='d') setDir(1,0);
+});
+document.getElementById('pad').addEventListener('click',e=>{
+  const d=e.target.dataset.d; if(!d) return;
+  if(d==='up') setDir(0,-1); if(d==='down') setDir(0,1);
+  if(d==='left') setDir(-1,0); if(d==='right') setDir(1,0);
+});
+document.getElementById('restart').onclick=reset;
+
+let tsx=0,tsy=0;
+cvs.addEventListener('touchstart',e=>{tsx=e.touches[0].clientX;tsy=e.touches[0].clientY;});
+cvs.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-tsx, dy=e.changedTouches[0].clientY-tsy;
+  if(Math.abs(dx)>Math.abs(dy)) setDir(dx>0?1:-1,0); else setDir(0,dy>0?1:-1);
+});
+reset();
+</script>
+</body>
+</html>
