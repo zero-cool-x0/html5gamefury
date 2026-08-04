@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory Match</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05060f;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;color:#F1EFE9;gap:10px}
+#hud{display:flex;gap:20px;color:#FFC94A;font-weight:bold}
+#board{display:grid;grid-template-columns:repeat(4,70px);gap:10px;background:#0F1229;padding:16px;border:4px solid #FFC94A;border-radius:12px}
+.card{width:70px;height:70px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;background:#232a5c;transition:transform .3s;user-select:none}
+.card.flip{background:#43D9C8;color:#0F1229}
+.card.matched{background:#FF5C77;color:#0F1229;cursor:default}
+button{background:#FF5C77;color:#0F1229;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer}
+#msg{color:#43D9C8;min-height:20px}
+@media(max-width:420px){#board{grid-template-columns:repeat(4,58px)}.card{width:58px;height:58px;font-size:24px}}
+</style>
+</head>
+<body>
+<div id="hud"><span>চাল: <b id="moves">0</b></span><span>সেরা: <b id="best">-</b></span></div>
+<div id="board"></div>
+<div id="msg">দুইটা মিলে যাওয়া কার্ড খুঁজে বের করুন</div>
+<button id="restart">নতুন গেম</button>
+<script>
+const icons=['🎮','👾','🕹️','🎯','🏆','⭐','💎','🔥'];
+const board=document.getElementById('board');
+let first=null, second=null, lock=false, moves=0, matched=0;
+let best=localStorage.getItem('memBest');
+document.getElementById('best').textContent = best || '-';
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function newGame(){
+  board.innerHTML=''; moves=0; matched=0; first=second=null; lock=false;
+  document.getElementById('moves').textContent=0;
+  document.getElementById('msg').textContent='দুইটা মিলে যাওয়া কার্ড খুঁজে বের করুন';
+  const deck=shuffle([...icons,...icons]);
+  deck.forEach(icon=>{
+    const c=document.createElement('div');
+    c.className='card'; c.dataset.icon=icon; c.textContent='?';
+    c.onclick=()=>flip(c);
+    board.appendChild(c);
+  });
+}
+function flip(c){
+  if(lock||c.classList.contains('flip')||c.classList.contains('matched')) return;
+  c.classList.add('flip'); c.textContent=c.dataset.icon;
+  if(!first){ first=c; return; }
+  second=c; lock=true; moves++; document.getElementById('moves').textContent=moves;
+  if(first.dataset.icon===second.dataset.icon){
+    first.classList.add('matched'); second.classList.add('matched');
+    matched++; first=second=null; lock=false;
+    if(matched===icons.length){
+      document.getElementById('msg').textContent='অভিনন্দন! '+moves+' চালে সম্পূর্ণ 🎉';
+      if(!best||moves<best){ best=moves; localStorage.setItem('memBest',best); document.getElementById('best').textContent=best; }
+    }
+  } else {
+    setTimeout(()=>{
+      first.classList.remove('flip'); first.textContent='?';
+      second.classList.remove('flip'); second.textContent='?';
+      first=second=null; lock=false;
+    },700);
+  }
+}
+document.getElementById('restart').onclick=newGame;
+newGame();
+</script>
+</body>
+</html>
