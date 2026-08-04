@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brick Breaker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05060f;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;color:#F1EFE9;gap:10px}
+canvas{background:#0F1229;border:4px solid #FFC94A;border-radius:8px;touch-action:none;max-width:94vw}
+#hud{color:#FFC94A;font-weight:bold}
+#msg{color:#FF5C77;min-height:20px}
+button{background:#FF5C77;color:#0F1229;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="hud">স্কোর: <span id="score">0</span> &nbsp; লাইফ: <span id="lives">3</span></div>
+<canvas id="c" width="360" height="440"></canvas>
+<div id="msg">মাউস / আঙুল দিয়ে প্যাডেল সরান</div>
+<button id="restart">Restart</button>
+<script>
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+let paddle,ball,bricks,score,lives,alive,launched;
+const rows=5, cols=8, bw=40, bh=16, bgap=4, boff=30;
+const colors=['#FF5C77','#FFC94A','#43D9C8','#8b9cff','#ff9f6b'];
+
+function reset(){
+  paddle={w:80,h:12,x:(cvs.width-80)/2,y:cvs.height-24};
+  ball={x:cvs.width/2,y:paddle.y-10,r:7,vx:3,vy:-4};
+  bricks=[];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++)
+    bricks.push({x:c*(bw+bgap)+ (cvs.width-cols*(bw+bgap))/2 ,y:r*(bh+bgap)+boff,alive:true,color:colors[r%colors.length]});
+  score=0; lives=3; alive=true; launched=false;
+  document.getElementById('score').textContent=0;
+  document.getElementById('lives').textContent=3;
+  document.getElementById('msg').textContent='ক্লিক/ট্যাপ করে বল ছাড়ুন';
+  draw();
+}
+function draw(){
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  ctx.fillStyle='#1B2044'; ctx.fillRect(0,0,cvs.width,cvs.height);
+  bricks.forEach(b=>{ if(b.alive){ ctx.fillStyle=b.color; ctx.fillRect(b.x,b.y,bw,bh); }});
+  ctx.fillStyle='#FFC94A'; ctx.fillRect(paddle.x,paddle.y,paddle.w,paddle.h);
+  ctx.fillStyle='#43D9C8'; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,7); ctx.fill();
+}
+function update(){
+  if(!alive) return;
+  if(!launched){ ball.x=paddle.x+paddle.w/2; ball.y=paddle.y-ball.r; draw(); return; }
+  ball.x+=ball.vx; ball.y+=ball.vy;
+  if(ball.x<ball.r||ball.x>cvs.width-ball.r) ball.vx*=-1;
+  if(ball.y<ball.r) ball.vy*=-1;
+  if(ball.y+ball.r>paddle.y && ball.y-ball.r<paddle.y+paddle.h && ball.x>paddle.x && ball.x<paddle.x+paddle.w){
+    ball.vy=-Math.abs(ball.vy);
+    const hit=(ball.x-(paddle.x+paddle.w/2))/(paddle.w/2);
+    ball.vx = hit*5;
+  }
+  if(ball.y>cvs.height){
+    lives--; document.getElementById('lives').textContent=lives;
+    if(lives<=0){ alive=false; document.getElementById('msg').textContent='গেম ওভার! স্কোর '+score; }
+    else { launched=false; ball={x:paddle.x+paddle.w/2,y:paddle.y-10,r:7,vx:3,vy:-4}; }
+  }
+  bricks.forEach(b=>{
+    if(!b.alive) return;
+    if(ball.x>b.x && ball.x<b.x+bw && ball.y-ball.r<b.y+bh && ball.y+ball.r>b.y){
+      b.alive=false; ball.vy*=-1; score+=10; document.getElementById('score').textContent=score;
+    }
+  });
+  if(bricks.every(b=>!b.alive)){ alive=false; document.getElementById('msg').textContent='অভিনন্দন! সব ব্রিক ভেঙেছেন 🎉'; }
+  draw();
+}
+function movePaddle(clientX){
+  const rect=cvs.getBoundingClientRect();
+  const scale=cvs.width/rect.width;
+  let x=(clientX-rect.left)*scale - paddle.w/2;
+  paddle.x=Math.max(0,Math.min(cvs.width-paddle.w,x));
+}
+cvs.addEventListener('mousemove',e=>movePaddle(e.clientX));
+cvs.addEventListener('touchmove',e=>{movePaddle(e.touches[0].clientX); e.preventDefault();},{passive:false});
+cvs.addEventListener('pointerdown',()=>{ if(!launched && alive){ launched=true; document.getElementById('msg').textContent=''; } else if(!alive) reset(); });
+document.getElementById('restart').onclick=reset;
+reset();
+setInterval(update,1000/60);
+</script>
+</body>
+</html>
