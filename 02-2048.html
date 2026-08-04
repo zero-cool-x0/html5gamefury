@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2048 Fusion</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05060f;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Trebuchet MS',sans-serif;color:#F1EFE9;gap:12px;touch-action:none}
+#hud{display:flex;gap:16px;align-items:center}
+.score{background:#1B2044;border:1px solid rgba(255,201,74,.3);border-radius:8px;padding:8px 16px;text-align:center}
+.score b{display:block;color:#FFC94A;font-size:20px}
+#board{position:relative;width:340px;height:340px;background:#0F1229;border:4px solid #FFC94A;border-radius:12px;padding:8px}
+.grid{position:absolute;inset:8px;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:8px}
+.cell-bg{background:rgba(255,255,255,0.04);border-radius:8px}
+.tile{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:bold;transition:all .12s ease;}
+#msg{color:#FF5C77;min-height:20px}
+button{background:#FF5C77;color:#0F1229;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="score">SCORE<b id="score">0</b></div>
+  <div class="score">BEST<b id="best">0</b></div>
+  <button id="restart">নতুন গেম</button>
+</div>
+<div id="board"><div class="grid" id="bg"></div><div id="tiles"></div></div>
+<div id="msg">সোয়াইপ বা তীর চিহ্ন দিয়ে টাইলগুলো মিশিয়ে দিন</div>
+<script>
+const size=4, boardEl=document.getElementById('board'), tilesEl=document.getElementById('tiles'), bg=document.getElementById('bg');
+let grid, score, best=+localStorage.getItem('t2048Best')||0;
+document.getElementById('best').textContent=best;
+for(let i=0;i<16;i++){const d=document.createElement('div');d.className='cell-bg';bg.appendChild(d);}
+const colors={2:'#232a5c',4:'#2c356e',8:'#43D9C8',16:'#3bc9b9',32:'#FF5C77',64:'#e04d66',128:'#FFC94A',256:'#f0b93a',512:'#f5a623',1024:'#ffdd57',2048:'#ffffff'};
+
+function newGame(){
+  grid=Array.from({length:size},()=>Array(size).fill(0));
+  score=0; document.getElementById('score').textContent=0;
+  document.getElementById('msg').textContent='সোয়াইপ বা তীর চিহ্ন দিয়ে টাইলগুলো মিশিয়ে দিন';
+  addTile(); addTile(); render();
+}
+function addTile(){
+  const empty=[];
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++) if(!grid[r][c]) empty.push([r,c]);
+  if(!empty.length) return;
+  const [r,c]=empty[Math.floor(Math.random()*empty.length)];
+  grid[r][c]=Math.random()<0.9?2:4;
+}
+function render(){
+  tilesEl.innerHTML='';
+  const cw=(boardEl.clientWidth-16-8*3)/4;
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++){
+    const v=grid[r][c]; if(!v) continue;
+    const t=document.createElement('div');
+    t.className='tile';
+    t.style.width=cw+'px'; t.style.height=cw+'px';
+    t.style.left=(c*(cw+8))+'px'; t.style.top=(r*(cw+8))+'px';
+    t.style.background=colors[v]||'#fff';
+    t.style.color = v<=4 ? '#F1EFE9':'#0F1229';
+    t.style.fontSize=(v<100?26:v<1000?22:18)+'px';
+    t.textContent=v;
+    tilesEl.appendChild(t);
+  }
+}
+function slide(row){
+  const arr=row.filter(v=>v);
+  for(let i=0;i<arr.length-1;i++){
+    if(arr[i]===arr[i+1]){arr[i]*=2;score+=arr[i];arr.splice(i+1,1);}
+  }
+  while(arr.length<size) arr.push(0);
+  return arr;
+}
+function move(dir){
+  let moved=false;
+  const before=JSON.stringify(grid);
+  if(dir==='left'){ for(let r=0;r<size;r++) grid[r]=slide(grid[r]); }
+  if(dir==='right'){ for(let r=0;r<size;r++) grid[r]=slide(grid[r].slice().reverse()).reverse(); }
+  if(dir==='up'){ for(let c=0;c<size;c++){ let col=grid.map(r=>r[c]); col=slide(col); for(let r=0;r<size;r++) grid[r][c]=col[r]; } }
+  if(dir==='down'){ for(let c=0;c<size;c++){ let col=grid.map(r=>r[c]).reverse(); col=slide(col).reverse(); for(let r=0;r<size;r++) grid[r][c]=col[r]; } }
+  moved = before !== JSON.stringify(grid);
+  if(moved){
+    addTile(); render();
+    document.getElementById('score').textContent=score;
+    if(score>best){best=score;localStorage.setItem('t2048Best',best);document.getElementById('best').textContent=best;}
+    checkOver();
+  }
+}
+function checkOver(){
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++){
+    if(!grid[r][c]) return;
+    if(c<size-1 && grid[r][c]===grid[r][c+1]) return;
+    if(r<size-1 && grid[r][c]===grid[r+1][c]) return;
+  }
+  document.getElementById('msg').textContent='আর কোনো মুভ নেই — গেম ওভার!';
+}
+document.addEventListener('keydown',e=>{
+  const map={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};
+  if(map[e.key]){ e.preventDefault(); move(map[e.key]); }
+});
+let sx=0,sy=0;
+boardEl.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;});
+boardEl.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<20) return;
+  if(Math.abs(dx)>Math.abs(dy)) move(dx>0?'right':'left'); else move(dy>0?'down':'up');
+});
+document.getElementById('restart').onclick=newGame;
+newGame();
+</script>
+</body>
+</html>
