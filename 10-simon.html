@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simon Sequence</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05060f;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;color:#F1EFE9;gap:14px}
+#hud{color:#FFC94A;font-weight:bold}
+#pad{width:260px;height:260px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;background:#0F1229;padding:10px;border-radius:50%;border:4px solid #FFC94A}
+.pd{border:none;cursor:pointer;opacity:.55;transition:opacity .1s, transform .1s}
+.pd.lit{opacity:1;transform:scale(0.96);box-shadow:0 0 30px currentColor}
+#pd0{background:#FF5C77;color:#FF5C77;border-radius:100% 0 0 0}
+#pd1{background:#FFC94A;color:#FFC94A;border-radius:0 100% 0 0}
+#pd2{background:#43D9C8;color:#43D9C8;border-radius:0 0 0 100%}
+#pd3{background:#8b9cff;color:#8b9cff;border-radius:0 0 100% 0}
+#msg{color:#FF5C77;min-height:20px}
+button.start{background:#FF5C77;color:#0F1229;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="hud">লেভেল: <span id="level">0</span> &nbsp; সেরা: <span id="best">0</span></div>
+<div id="pad">
+  <button class="pd" id="pd0"></button><button class="pd" id="pd1"></button>
+  <button class="pd" id="pd2"></button><button class="pd" id="pd3"></button>
+</div>
+<div id="msg">শুরু করতে বাটনে চাপুন — সিকোয়েন্স মনে রাখুন</div>
+<button class="start" id="startBtn">খেলা শুরু</button>
+<script>
+const pads=[0,1,2,3].map(i=>document.getElementById('pd'+i));
+const freqs=[261.6,329.6,392.0,523.2];
+let audioCtx;
+let seq=[], userSeq=[], level=0, best=+localStorage.getItem('simonBest')||0, accepting=false;
+document.getElementById('best').textContent=best;
+
+function beep(i,dur=350){
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.frequency.value=freqs[i]; o.type='square';
+  g.gain.value=0.08;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime+dur/1000);
+}
+function litPad(i,dur=350){
+  pads[i].classList.add('lit'); beep(i,dur);
+  setTimeout(()=>pads[i].classList.remove('lit'),dur);
+}
+async function playSeq(){
+  accepting=false;
+  document.getElementById('msg').textContent='ভালো করে দেখুন...';
+  for(let i=0;i<seq.length;i++){
+    await new Promise(r=>setTimeout(r,450));
+    litPad(seq[i]);
+  }
+  await new Promise(r=>setTimeout(r,450));
+  userSeq=[]; accepting=true;
+  document.getElementById('msg').textContent='এখন আপনার পালা!';
+}
+function nextRound(){
+  seq.push(Math.floor(Math.random()*4));
+  level=seq.length;
+  document.getElementById('level').textContent=level;
+  playSeq();
+}
+function press(i){
+  if(!accepting) return;
+  litPad(i,200);
+  userSeq.push(i);
+  const idx=userSeq.length-1;
+  if(userSeq[idx]!==seq[idx]){ gameOver(); return; }
+  if(userSeq.length===seq.length){
+    accepting=false;
+    if(level>best){ best=level; localStorage.setItem('simonBest',best); document.getElementById('best').textContent=best; }
+    setTimeout(nextRound,700);
+  }
+}
+function gameOver(){
+  accepting=false;
+  document.getElementById('msg').textContent='ভুল হয়ে গেছে! লেভেল '+level+' এ থামলেন।';
+  document.getElementById('startBtn').disabled=false;
+}
+function start(){
+  seq=[]; level=0; document.getElementById('level').textContent=0;
+  document.getElementById('startBtn').disabled=true;
+  nextRound();
+}
+pads.forEach((p,i)=>p.addEventListener('click',()=>press(i)));
+document.getElementById('startBtn').onclick=start;
+</script>
+</body>
+</html>

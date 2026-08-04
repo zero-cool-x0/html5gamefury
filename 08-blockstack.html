@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Stack</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05060f;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;color:#F1EFE9;gap:10px}
+#wrap{display:flex;gap:16px;align-items:flex-start}
+canvas{background:#0F1229;border:4px solid #FFC94A;border-radius:8px}
+#side{display:flex;flex-direction:column;gap:12px}
+.box{background:#1B2044;border:1px solid rgba(255,201,74,.3);border-radius:8px;padding:10px 16px;text-align:center}
+.box b{display:block;color:#FFC94A;font-size:20px}
+#next{width:90px;height:90px}
+#msg{color:#FF5C77;min-height:20px}
+.pad{display:grid;grid-template-columns:repeat(4,46px);gap:6px;margin-top:6px}
+.pad button{width:46px;height:46px;background:#232a5c;color:#FFC94A;border:none;border-radius:8px;font-size:16px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="240" height="440"></canvas>
+  <div id="side">
+    <div class="box">স্কোর<b id="score">0</b></div>
+    <div class="box">পরবর্তী<canvas id="next" width="80" height="80"></canvas></div>
+  </div>
+</div>
+<div id="msg">তীর চিহ্ন: বামে/ডানে/নিচে, উপরে = ঘোরান</div>
+<div class="pad">
+  <button data-a="left">◀</button><button data-a="rot">⟳</button><button data-a="right">▶</button><button data-a="down">▼</button>
+</div>
+<script>
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const nc=document.getElementById('next'),nctx=nc.getContext('2d');
+const cols=8, rows=16, cell=cvs.width/cols;
+let board, cur, next, score, dropTimer, alive;
+
+const shapes={
+  I:[[1,1,1,1]], O:[[1,1],[1,1]], T:[[0,1,0],[1,1,1]],
+  S:[[0,1,1],[1,1,0]], Z:[[1,1,0],[0,1,1]], J:[[1,0,0],[1,1,1]], L:[[0,0,1],[1,1,1]]
+};
+const colorMap={I:'#43D9C8',O:'#FFC94A',T:'#FF5C77',S:'#8b9cff',Z:'#e04d66',J:'#5c7cfa',L:'#ff9f6b'};
+const keys=Object.keys(shapes);
+
+function newPiece(){
+  const k=keys[Math.floor(Math.random()*keys.length)];
+  return {shape:shapes[k].map(r=>[...r]), color:colorMap[k], x:Math.floor(cols/2)-1, y:0, key:k};
+}
+function reset(){
+  board=Array.from({length:rows},()=>Array(cols).fill(null));
+  score=0; alive=true;
+  document.getElementById('score').textContent=0;
+  document.getElementById('msg').textContent='তীর চিহ্ন: বামে/ডানে/নিচে, উপরে = ঘোরান';
+  cur=newPiece(); next=newPiece();
+  clearInterval(dropTimer); dropTimer=setInterval(()=>drop(),550);
+  draw();
+}
+function collide(shape,x,y){
+  for(let r=0;r<shape.length;r++) for(let c=0;c<shape[r].length;c++){
+    if(!shape[r][c]) continue;
+    const nx=x+c, ny=y+r;
+    if(nx<0||nx>=cols||ny>=rows) return true;
+    if(ny>=0 && board[ny][nx]) return true;
+  }
+  return false;
+}
+function merge(){
+  cur.shape.forEach((row,r)=>row.forEach((v,c)=>{ if(v){ const ny=cur.y+r, nx=cur.x+c; if(ny>=0) board[ny][nx]=cur.color; }}));
+}
+function clearLines(){
+  let cleared=0;
+  for(let r=rows-1;r>=0;r--){
+    if(board[r].every(v=>v)){ board.splice(r,1); board.unshift(Array(cols).fill(null)); cleared++; r++; }
+  }
+  if(cleared){ score += [0,40,100,300,1200][cleared]||cleared*100; document.getElementById('score').textContent=score; }
+}
+function drop(){
+  if(!alive) return;
+  if(!collide(cur.shape,cur.x,cur.y+1)){ cur.y++; }
+  else{
+    merge(); clearLines();
+    cur=next; next=newPiece();
+    if(collide(cur.shape,cur.x,cur.y)){ alive=false; clearInterval(dropTimer); document.getElementById('msg').textContent='গেম ওভার! স্কোর '+score; }
+  }
+  draw();
+}
+function move(dx){ if(!collide(cur.shape,cur.x+dx,cur.y)) cur.x+=dx; draw(); }
+function rotate(){
+  const s=cur.shape, R=s.length, C=s[0].length;
+  const rotated=Array.from({length:C},(_,r)=>Array.from({length:R},(_,c)=>s[R-1-c][r]));
+  if(!collide(rotated,cur.x,cur.y)){ cur.shape=rotated; draw(); }
+}
+function drawGrid(g,ctxx,cs){
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(g[r] && g[r][c]){ ctxx.fillStyle=g[r][c]; ctxx.fillRect(c*cs+1,r*cs+1,cs-2,cs-2); }
+}
+function draw(){
+  ctx.fillStyle='#0F1229'; ctx.fillRect(0,0,cvs.width,cvs.height);
+  drawGrid(board,ctx,cell);
+  ctx.fillStyle=cur.color;
+  cur.shape.forEach((row,r)=>row.forEach((v,c)=>{ if(v) ctx.fillRect((cur.x+c)*cell+1,(cur.y+r)*cell+1,cell-2,cell-2); }));
+  nctx.clearRect(0,0,nc.width,nc.height);
+  nctx.fillStyle=next.color;
+  const ncell=18;
+  next.shape.forEach((row,r)=>row.forEach((v,c)=>{ if(v) nctx.fillRect(c*ncell+8,r*ncell+8,ncell-2,ncell-2); }));
+}
+document.addEventListener('keydown',e=>{
+  if(!alive) return;
+  if(e.key==='ArrowLeft') move(-1);
+  else if(e.key==='ArrowRight') move(1);
+  else if(e.key==='ArrowDown') drop();
+  else if(e.key==='ArrowUp') rotate();
+});
+document.querySelector('.pad').addEventListener('click',e=>{
+  const a=e.target.dataset.a; if(!a||!alive) return;
+  if(a==='left') move(-1); if(a==='right') move(1); if(a==='down') drop(); if(a==='rot') rotate();
+});
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Whack-a-Mole</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05060f;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;color:#F1EFE9;gap:12px}
+#hud{display:flex;gap:20px;color:#FFC94A;font-weight:bold;font-size:18px}
+#grid{display:grid;grid-template-columns:repeat(3,100px);gap:14px;background:#0F1229;padding:18px;border:4px solid #FFC94A;border-radius:16px}
+.hole{width:100px;height:100px;background:#1B2044;border-radius:50%;position:relative;overflow:hidden;cursor:pointer;border:3px solid #232a5c}
+.mole{position:absolute;bottom:-100%;left:10%;width:80%;height:90%;background:#FF5C77;border-radius:50% 50% 45% 45%;transition:bottom .15s ease;display:flex;align-items:center;justify-content:center;font-size:32px}
+.hole.up .mole{bottom:0}
+#msg{color:#43D9C8}
+button{background:#FF5C77;color:#0F1229;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="hud"><span>স্কোর: <b id="score">0</b></span><span>সময়: <b id="time">30</b>s</span><span>সেরা: <b id="best">0</b></span></div>
+<div id="grid"></div>
+<div id="msg">শুরু করতে নিচের বাটনে চাপুন</div>
+<button id="startBtn">খেলা শুরু</button>
+<script>
+const grid=document.getElementById('grid');
+let holes=[], score=0, timeLeft=30, best=+localStorage.getItem('whackBest')||0, running=false, moleTimer, countdownTimer, activeIdx=-1;
+document.getElementById('best').textContent=best;
+
+for(let i=0;i<9;i++){
+  const h=document.createElement('div'); h.className='hole';
+  const m=document.createElement('div'); m.className='mole'; m.textContent='👾';
+  h.appendChild(m);
+  h.onclick=()=>{ if(h.classList.contains('up') && running){ h.classList.remove('up'); score++; document.getElementById('score').textContent=score; } };
+  grid.appendChild(h); holes.push(h);
+}
+function popRandom(){
+  holes.forEach(h=>h.classList.remove('up'));
+  const i=Math.floor(Math.random()*holes.length);
+  holes[i].classList.add('up');
+  activeIdx=i;
+}
+function start(){
+  score=0; timeLeft=30; running=true;
+  document.getElementById('score').textContent=0;
+  document.getElementById('time').textContent=30;
+  document.getElementById('msg').textContent='মোলে ক্লিক করুন!';
+  document.getElementById('startBtn').disabled=true;
+  moleTimer=setInterval(popRandom, 700);
+  countdownTimer=setInterval(()=>{
+    timeLeft--; document.getElementById('time').textContent=timeLeft;
+    if(timeLeft<=0) end();
+  },1000);
+}
+function end(){
+  running=false;
+  clearInterval(moleTimer); clearInterval(countdownTimer);
+  holes.forEach(h=>h.classList.remove('up'));
+  document.getElementById('msg').textContent='সময় শেষ! স্কোর '+score;
+  document.getElementById('startBtn').disabled=false;
+  if(score>best){ best=score; localStorage.setItem('whackBest',best); document.getElementById('best').textContent=best; }
+}
+document.getElementById('startBtn').onclick=start;
+</script>
+</body>
+</html>

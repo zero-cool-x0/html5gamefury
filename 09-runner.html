@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jump Runner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#05060f;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;color:#F1EFE9;gap:10px}
+canvas{background:#0F1229;border:4px solid #FFC94A;border-radius:8px;touch-action:none;max-width:94vw}
+#hud{color:#FFC94A;font-weight:bold}
+#msg{color:#FF5C77;min-height:20px}
+button{background:#FF5C77;color:#0F1229;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="hud">স্কোর: <span id="score">0</span> &nbsp; সেরা: <span id="best">0</span></div>
+<canvas id="c" width="360" height="200"></canvas>
+<div id="msg">স্পেস / ট্যাপ করে লাফ দিন, নিচে যেতে ↓ চাপুন</div>
+<button id="restart">Restart</button>
+<script>
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const groundY=160;
+let player,obstacles,score,best=+localStorage.getItem('runBest')||0,alive,speed,frame,ducking;
+document.getElementById('best').textContent=best;
+
+function reset(){
+  player={x:40,y:groundY-30,w:26,h:30,vy:0,jumping:false};
+  obstacles=[]; score=0; speed=4.5; frame=0; alive=true; ducking=false;
+  document.getElementById('score').textContent=0;
+  document.getElementById('msg').textContent='স্পেস / ট্যাপ করে লাফ দিন';
+  draw();
+}
+function spawn(){
+  const flying=Math.random()<0.3;
+  obstacles.push({x:cvs.width, y: flying? groundY-55 : groundY-22, w: flying?22:18, h: flying?18:22, flying});
+}
+function update(){
+  if(!alive) return;
+  frame++;
+  if(frame%Math.max(50,90-Math.floor(speed*3))===0) spawn();
+  player.vy+=0.9; player.y+=player.vy;
+  if(player.y>groundY-player.h){ player.y=groundY-player.h; player.vy=0; player.jumping=false; }
+  obstacles.forEach(o=>o.x-=speed);
+  if(obstacles.length && obstacles[0].x < -30) obstacles.shift();
+  const ph = ducking? 16: player.h;
+  const py = ducking? groundY-16 : player.y;
+  obstacles.forEach(o=>{
+    if(!o.passed && o.x+o.w<player.x){ o.passed=true; score++; document.getElementById('score').textContent=score; if(score%5===0) speed+=0.4; }
+    const hit = player.x<o.x+o.w && player.x+player.w>o.x && py<o.y+o.h && py+ph>o.y;
+    if(hit) die();
+  });
+}
+function die(){
+  alive=false;
+  document.getElementById('msg').textContent='ধাক্কা লেগেছে! স্কোর '+score;
+  if(score>best){best=score;localStorage.setItem('runBest',best);document.getElementById('best').textContent=best;}
+}
+function draw(){
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  ctx.fillStyle='#1B2044'; ctx.fillRect(0,0,cvs.width,cvs.height);
+  ctx.strokeStyle='#FFC94A'; ctx.beginPath(); ctx.moveTo(0,groundY); ctx.lineTo(cvs.width,groundY); ctx.stroke();
+  ctx.fillStyle='#43D9C8';
+  obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h));
+  ctx.fillStyle='#FFC94A';
+  const ph = ducking? 16: player.h;
+  const py = ducking? groundY-16 : player.y;
+  ctx.fillRect(player.x,py,player.w,ph);
+}
+function jump(){
+  if(!alive){ reset(); return; }
+  if(!player.jumping){ player.vy=-13; player.jumping=true; }
+}
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){ e.preventDefault(); jump(); }
+  if(e.key==='ArrowDown') ducking=true;
+});
+document.addEventListener('keyup',e=>{ if(e.key==='ArrowDown') ducking=false; });
+cvs.addEventListener('pointerdown',jump);
+document.getElementById('restart').onclick=reset;
+reset();
+setInterval(()=>{ update(); draw(); },1000/60);
+</script>
+</body>
+</html>
